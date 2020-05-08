@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Mine Sweeper</title>
+</head>
+<body>
+    <script type="text/javascript">
+
+        class Tiles
+        {
+            constructor(value, x, y, size)
+            {
+                this.x = x;
+                this.y = y;
+                this.value = value;
+                this.revealed = false;
+                this.neighbor = [];
+                this.size = size;
+                this.color = 'blue';
+                this.hoverTimer = 0;
+                this.onHover = false;
+                this.runHoverTimer = false;
+                this.flagged = false;
+            }
+
+            countBombNeighbor()
+            {
+                if (this.value == 'x') return;
+
+                let count = 0;
+                for (let n of this.neighbor)
+                {
+                    if (n.value == 'x')
+                    {
+                        ++count;
+                    }
+                }
+                this.value = count == 0 ? ' ' : count + "";
+            }
+
+            check()
+            {
+                this.revealed = true;
+
+                if (this.value == ' ')
+                {
+                   for (let n of this.neighbor)
+                    {
+                        if (n.value == ' ' && !n.revealed)
+                            n.check();
+                        n.revealed = true;
+                    }
+                }
+
+                if (this.value == 'x')
+                    return false;
+
+                return true;
+            }
+
+            update()
+            {
+
+                if (this.runHoverTimer)
+                {
+                    this.hoverTimer++;
+                    if (this.hoverTimer > 5)
+                    {
+                        this.hoverTimer = 0;
+                        this.runHoverTimer = false;
+                    }
+                }
+
+                if (this.flagged && !this.revealed)
+                    this.color = 'red'
+                else if (this.onHover && !this.revealed)
+                    this.color = 'green';
+                else if (this.runHoverTimer && !this.revealed)
+                    this.color = 'skyblue';
+                else if (this.revealed)
+                    this.color = 'grey';
+                else
+                    this.color = 'blue';
+            }
+
+            draw(context)
+            {
+                context.fillStyle = this.color;
+                context.fillRect(this.x, this.y, this.size, this.size);
+
+                if (this.revealed)
+                {
+                    let textColors = ['#b2967d', '#ffd166', '#f7d6e0', '#9e0059', '#06d6a0', '#cbf3f0', '#0081a7', '#fdfffc'];
+                    context.fillStyle = this.value == 'x' ? 'black' : textColors[parseInt(this.value)];
+                    context.font = this.size + "px Georgia";
+                    context.fillText(this.value, this.x+this.size/3, this.y+this.size/2+this.size/4);
+                }
+            }
+        }
+
+        const canvas = document.createElement('canvas');
+        const context = canvas.getContext('2d');
+
+        window.canvas = canvas;
+
+        const PADDING = 1;
+        let NUM_OF_TILES_ACROSS = 10;
+        let tileSize = 0;
+
+        let tiles = [];
+        let gameOver = false;
+        let win = false;
+
+        function init()
+        {
+            canvas.width = 600;
+            canvas.height = 600;
+            canvas.oncontextmenu = () => false;
+            document.body.append(canvas);
+
+            tileSize = canvas.width / NUM_OF_TILES_ACROSS;
+
+            createTiles();
+            addTileNeighbor();
+        }
+
+        function createTiles()
+        {
+            for (let i = 0; i < NUM_OF_TILES_ACROSS * NUM_OF_TILES_ACROSS; ++i)
+            {
+                let x = i % NUM_OF_TILES_ACROSS * tileSize;
+                let y = Math.floor(i / NUM_OF_TILES_ACROSS) * tileSize;
+                let value = ' ';
+
+                let rand = Math.random() * 5;
+
+                value = rand >= 4.1 ? 'x' : value;
+
+                tiles.push(new Tiles(value, x, y, tileSize-PADDING));
+            }
+        }
+
+        function addTileNeighbor()
+        {
+            for (let i = 0; i < NUM_OF_TILES_ACROSS * NUM_OF_TILES_ACROSS; ++i)
+            {
+                if (i % NUM_OF_TILES_ACROSS != 0)
+                {
+                    tiles[i].neighbor.push(tiles[i-1]);
+                }
+
+                if (i % NUM_OF_TILES_ACROSS != NUM_OF_TILES_ACROSS - 1)
+                {
+                    tiles[i].neighbor.push(tiles[i+1]);
+                }
+
+                if (Math.floor(i / NUM_OF_TILES_ACROSS) != 0)
+                {
+                    tiles[i].neighbor.push(tiles[i-NUM_OF_TILES_ACROSS]);
+                }
+
+                if (Math.floor(i / NUM_OF_TILES_ACROSS) != NUM_OF_TILES_ACROSS - 1)
+                {
+                    tiles[i].neighbor.push(tiles[i+NUM_OF_TILES_ACROSS]);
+                }
+
+                if (i % NUM_OF_TILES_ACROSS != 0 && Math.floor(i / NUM_OF_TILES_ACROSS) != 0)
+                {
+                    tiles[i].neighbor.push(tiles[i-NUM_OF_TILES_ACROSS-1]);
+                }
+
+                if (i % NUM_OF_TILES_ACROSS != NUM_OF_TILES_ACROSS - 1 && Math.floor(i / NUM_OF_TILES_ACROSS) != 0)
+                {
+                    tiles[i].neighbor.push(tiles[i-NUM_OF_TILES_ACROSS+1]);
+                }
+
+                if (i % NUM_OF_TILES_ACROSS != 0 && Math.floor(i / NUM_OF_TILES_ACROSS) != NUM_OF_TILES_ACROSS - 1)
+                {
+                    tiles[i].neighbor.push(tiles[i+NUM_OF_TILES_ACROSS-1]);
+                }
+
+                if (i % NUM_OF_TILES_ACROSS != NUM_OF_TILES_ACROSS - 1 && Math.floor(i / NUM_OF_TILES_ACROSS) != NUM_OF_TILES_ACROSS - 1)
+                {
+                    tiles[i].neighbor.push(tiles[i+NUM_OF_TILES_ACROSS+1]);
+                }
+
+                tiles[i].countBombNeighbor();
+            }
+        }
+
+        function update()
+        {
+            for (let tile of tiles)
+            {
+                tile.update();
+            }
+        }
+
+        function draw()
+        {
+            for (let tile of tiles)
+            {
+                tile.draw(context);
+            }
+        }
+
+        function getPos(c, e){
+            var rect = c.getBoundingClientRect();
+            return {x:e.clientX - rect.left, y: e.clientY - rect.top, size: 0.5};
+        }
+
+        function collide(source, target) {
+            return !(
+                ( ( source.y + source.size ) < ( target.y ) ) ||
+                ( source.y > ( target.y + target.size ) ) ||
+                ( ( source.x + source.size ) < target.x ) ||
+                ( source.x > ( target.x + target.size ) )
+            );
+        }
+
+        canvas.onmousemove = e => {
+            let pos = getPos(canvas, e);
+
+            if (gameOver || win) return;
+
+            for (let tile of tiles)
+            {
+                if (collide(pos, tile))
+                {
+                    tile.onHover = true;
+                }
+                else
+                {
+                    if (tile.onHover)
+                    {
+                        tile.onHover = false;
+                        tile.runHoverTimer = true;
+                    }
+                }
+            }
+        }
+
+        canvas.onmousedown = e => {
+            let pos = getPos(canvas, e);
+
+            if (gameOver || win) return;
+
+            for (let tile of tiles)
+            {
+                if (collide(pos, tile))
+                {
+                    if (e.button == 0)
+                    {
+                        if (tile.flagged) return;
+                        if (!tile.check())
+                        {
+                            gameOver = true;
+                        }
+                    }
+                    else if (e.button == 2)
+                    {
+                        tile.flagged = !tile.flagged;
+                    }
+                }
+            }
+
+            if (gameOver)
+            {
+                for (let tile of tiles)
+                {
+                    if (tile.value == 'x') tile.revealed = true;
+                }
+            }
+            else
+            {
+                win = true;
+                for (let tile of tiles)
+                {
+                    if (!tile.revealed && tile.value != 'x')
+                    {
+                        win = false;
+                        break;
+                    }
+                }
+                if (win) console.log("Win!");
+            }
+        }
+
+        canvas.onmouseleave = e => {
+            for (let tile of tiles)
+            {
+                if (tile.onHover) tile.onHover = false;
+            }
+        }
+
+        init();
+        setInterval(() => {
+
+            update();
+            draw();
+
+        }, 1000/30);
+
+    </script>
+</body>
+</html>
